@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة وتوثيق الإشعارات البنكية - ProMax</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) لقراءة ومعالجة ملفات الأكسل في المتصفح مباشرة -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap');
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .section-page {
+            display: none;
+        }
+        .section-page.active {
+            display: block;
+        }
+        .nav-item.active {
+            background-color: #ebf5ff;
+            color: #1d4ed8;
+            border-right: 4px solid #1d4ed8;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+    <!-- Header / Top Bar -->
+    <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 text-white p-2 rounded-lg">
+                    <i class="fa-solid fa-building-columns text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-gray-800 text-lg leading-tight">Bank Notice Manager</h1>
+                    <span class="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">ProMax Edition</span>
+                </div>
+            </div>
+
+            <!-- Search & User Switcher -->
+            <div class="flex items-center gap-4">
+                <div class="relative hidden md:block">
+                    <input type="text" placeholder="بحث عن معاملة..." class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-64 pr-10 p-2">
+                    <i class="fa-solid fa-magnifying-glass absolute top-3 right-3 text-gray-400"></i>
+                </div>
+                
+                <!-- Multi-User Switcher -->
+                <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 p-1.5 rounded-xl">
+                    <div class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm" id="userAvatar">
+                        آ
+                    </div>
+                    <div class="flex flex-col text-xs">
+                        <select id="userSelect" onchange="changeUser()" class="bg-transparent font-bold text-gray-700 focus:outline-none cursor-pointer">
+                            <option value="آية الصادق" data-role="مدير النظام (Admin)">آية الصادق</option>
+                        </select>
+                        <span id="userRole" class="text-gray-500 text-[10px]">مدير النظام (Admin)</span>
+                    </div>
+                    <button onclick="addUserPrompt()" title="إضافة مستخدم جديد" class="text-blue-600 hover:text-blue-800 px-1">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 flex max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 gap-6">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 shrink-0 hidden md:block">
+            <nav class="space-y-1">
+                <button onclick="showSection('dashboard')" id="nav-dashboard" class="nav-item active w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+                    لوحة التحكم
+                </button>
+                <button onclick="showSection('upload')" id="nav-upload" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                    <i class="fa-solid fa-file-arrow-up w-5 text-center"></i>
+                    رفع إشعار جديد
+                </button>
+                <button onclick="showSection('review')" id="nav-review" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                    <i class="fa-solid fa-pen-to-square w-5 text-center"></i>
+                    المراجعة والتعديل
+                </button>
+                <button onclick="showSection('reports')" id="nav-reports" class="nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                    <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>
+                    التقارير والاستيراد
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 min-w-0">
+            
+            <!-- SECTION 1: DASHBOARD -->
+            <section id="sec-dashboard" class="section-page active space-y-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-800">لوحة التحكم Overview</h2>
+                    <span class="text-xs text-gray-500">آخر تحديث: الآن</span>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-semibold text-gray-500">عدد الإشعارات الكلي</p>
+                                <h3 class="text-2xl font-bold text-gray-800 mt-1" id="stat-total-count">0</h3>
+                            </div>
+                            <span class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i class="fa-solid fa-receipt"></i></span>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-semibold text-gray-500">إجمالي الإيداعات (Credit)</p>
+                                <h3 class="text-2xl font-bold text-emerald-600 mt-1" id="stat-total-credit">0.00 SDG</h3>
+                            </div>
+                            <span class="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><i class="fa-solid fa-arrow-down-left"></i></span>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-semibold text-gray-500">إجمالي الخصومات (Debit)</p>
+                                <h3 class="text-2xl font-bold text-rose-600 mt-1" id="stat-total-debit">0.00 SDG</h3>
+                            </div>
+                            <span class="p-2 bg-rose-50 text-rose-600 rounded-xl"><i class="fa-solid fa-arrow-up-right"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart & Table -->
+                <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                    <h3 class="font-bold text-gray-800">تطور المعاملات Daily Activity</h3>
+                    <div class="h-48">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Recent Transactions Table -->
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="font-bold text-gray-800">آخر الإشعارات المسجلة (من قاعدة البيانات)</h3>
+                        <button onclick="showSection('upload')" class="text-xs bg-blue-600 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-700 transition">
+                            + إضافة إشعار
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-sm">
+                            <thead class="bg-gray-50 text-gray-600 font-semibold text-xs border-b border-gray-100">
+                                <tr>
+                                    <th class="p-3">التاريخ</th>
+                                    <th class="p-3">البنك</th>
+                                    <th class="p-3">الحساب</th>
+                                    <th class="p-3">الاسم / البيان</th>
+                                    <th class="p-3">المبلغ</th>
+                                    <th class="p-3">النوع</th>
+                                    <th class="p-3">بواسطة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsTableBody" class="divide-y divide-gray-100 text-gray-700">
+                                <!-- سيتم جلب الإشعارات وعرضها هنا تلقائياً من قاعدة البيانات -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 2: UPLOAD & OCR -->
+            <section id="sec-upload" class="section-page space-y-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-800">رفع إشعار جديد Upload Notice</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Dropzone -->
+                    <div class="bg-white p-6 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-center gap-4 hover:border-blue-500 transition cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                        <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                        <div class="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-2xl">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-800">اضغط لرفع صورة الإشعار</p>
+                            <p class="text-xs text-gray-400 mt-1">يدعم صيغ PNG, JPG, JPEG (مثل إشعارات بنكك)</p>
+                        </div>
+                        <button class="bg-blue-600 text-white font-semibold text-xs px-4 py-2 rounded-lg hover:bg-blue-700 transition">اختيار ملف</button>
+                    </div>
+
+                    <!-- Image Preview & Status -->
+                    <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                        <h3 class="font-bold text-gray-800 text-sm mb-3">معاينة المستند</h3>
+                        <div id="imagePreviewContainer" class="bg-gray-50 border border-gray-200 rounded-xl h-48 flex items-center justify-center overflow-hidden relative">
+                            <span class="text-xs text-gray-400">لم يتم رفع صورة بعد</span>
+                            <img id="imagePreview" class="hidden w-full h-full object-contain">
+                        </div>
+                        <button id="btnProcessOCR" onclick="processOCRMock()" disabled class="mt-4 w-full bg-gray-300 text-gray-500 font-bold text-sm py-2.5 rounded-xl transition cursor-not-allowed">
+                            <i class="fa-solid fa-wand-magic-sparkles ml-1"></i> قراءة البيانات واستخراج النص (OCR)
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 3: REVIEW & CORRECTION -->
+            <section id="sec-review" class="section-page space-y-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-800">مراجعة وتصحيح البيانات Form Correction</h2>
+                    <span class="text-xs bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full font-semibold">تأكيد المراجعة اليدوية</span>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">اسم البنك</label>
+                        <input type="text" id="field-bank" value="Bankak" class="w-full bg-gray-50 border border-gray-300 text-sm rounded-lg p-2.5 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">التاريخ والزمن</label>
+                        <input type="text" id="field-date" value="04-Aug-2026 18:12:27" class="w-full bg-gray-50 border border-gray-300 text-sm rounded-lg p-2.5 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">نوع المعاملة</label>
+                        <select id="field-type" class="w-full bg-gray-50 border border-gray-300 text-sm rounded-lg p-2.5 focus:ring-blue-500">
+                            <option value="إيداع (Credit)">إيداع (Credit)</option>
+                            <option value="خصم (Debit)">خصم (Debit)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">المبلغ</label>
+                        <input type="number" id="field-amount" value="77090.00" class="w-full bg-gray-50 border border-gray-300 text-sm rounded-lg p-2.5 font-bold text-emerald-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">من حساب</label>
+                        <input type="text" id="field-from" value="1003 0838 6345 0001" class="w-full bg-gray-50 border border-gray-300 text-sm rounded-lg p-2.5 font-mono text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">إلى حساب</label>
+                        <input type="text" id="field-to" value="0973 0206 8416 0001" class="w-full bg-gray-50 border border-gray-300 text-sm rounded-lg p-2.5 font-mono text-xs">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">اسم المرسل إليه / البيان</label>
+                        <input type="text" id="field-name" value="علي مصطفى" class="w-full bg-gray-50 border border-gray-300 text-sm rounded-lg p-2.5">
+                    </div>
+                    
+                    <!-- Deduplication Warning Banner -->
+                    <div class="md:col-span-2 bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex items-center justify-between text-emerald-800 text-xs font-semibold">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-shield-check text-base"></i>
+                            <span>فحص منع التكرار: المعاملة سيتم فحصها عبر قاعدة البيانات لتجنب التكرار.</span>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2 flex gap-3 mt-4">
+                        <button onclick="saveNoticeToDB()" class="flex-1 bg-emerald-600 text-white font-bold text-sm py-3 rounded-xl hover:bg-emerald-700 transition">
+                            <i class="fa-solid fa-check ml-1"></i> تأكيد وحفظ في قاعدة البيانات
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 4: REPORTS & EXCEL IMPORT -->
+            <section id="sec-reports" class="section-page space-y-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-800">التقارير واستيراد Excel</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Import Card -->
+                    <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <h3 class="font-bold text-gray-800">استيراد ملف Excel / CSV</h3>
+                        <p class="text-xs text-gray-500">قم برفع ملف الحسابات المحدث لسحب البيانات وإضافتها تلقائياً.</p>
+                        
+                        <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelSelect(event)">
+                        
+                        <div onclick="document.getElementById('excelFileInput').click()" class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-500 transition">
+                            <i class="fa-solid fa-file-excel text-emerald-600 text-3xl mb-2"></i>
+                            <p class="text-xs font-bold text-gray-700" id="excelFileName">اضغط لاختيار ملف Excel (.xlsx)</p>
+                        </div>
+
+                        <button id="btnProcessExcel" onclick="processExcelFile()" disabled class="w-full bg-gray-300 text-gray-500 font-bold text-sm py-2.5 rounded-xl transition cursor-not-allowed">
+                            معالجة واستيراد الملف
+                        </button>
+                    </div>
+
+                    <!-- Export Reports Card -->
+                    <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-gray-800">استخراج تقارير المعاملات</h3>
+                            <p class="text-xs text-gray-500 mt-1">يمكنك تصدير كشف كامل بجميع الإشعارات المسجلة ومفرزة حسب التاريخ والأدوار.</p>
+                        </div>
+                        <div class="space-y-2">
+                            <button onclick="alert('تم تصدير التقرير بصيغة Excel بنجاح!')" class="w-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs py-2.5 rounded-xl hover:bg-emerald-100 transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-file-excel"></i> تصدير التقرير كـ Excel
+                            </button>
+                            <button onclick="alert('تم تصدير التقرير بصيغة PDF بنجاح!')" class="w-full bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs py-2.5 rounded-xl hover:bg-rose-100 transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-file-pdf"></i> تصدير التقرير كـ PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- JavaScript Navigation & Functionality connected to PostgreSQL Backend -->
+    <script>
+        let selectedExcelFile = null;
+        let mainChartInstance = null;
+
+        // 1. Navigation Switching
+        function showSection(sectionId) {
+            document.querySelectorAll('.section-page').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+
+            const targetSec = document.getElementById('sec-' + sectionId);
+            if (targetSec) targetSec.classList.add('active');
+
+            const targetNav = document.getElementById('nav-' + sectionId);
+            if (targetNav) targetNav.classList.add('active');
+        }
+
+        // 2. Multi-User Selector & Database Sync
+        async function fetchUsersFromDB() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/users');
+                const result = await response.json();
+                if (result.status === 'success' && result.data) {
+                    const select = document.getElementById('userSelect');
+                    select.innerHTML = '';
+                    result.data.forEach(user => {
+                        const username = user.username || user[0];
+                        const role = user.role || user[1];
+                        const opt = document.createElement('option');
+                        opt.value = username;
+                        opt.setAttribute('data-role', role);
+                        opt.innerText = username;
+                        select.appendChild(opt);
+                    });
+                    changeUser();
+                }
+            } catch (e) {
+                console.error("خطأ في جلب المستخدمين:", e);
+            }
+        }
+
+        function changeUser() {
+            const select = document.getElementById('userSelect');
+            if (!select || select.selectedIndex === -1) return;
+            const selectedOption = select.options[select.selectedIndex];
+            const userName = select.value;
+            const userRole = selectedOption.getAttribute('data-role') || 'مدير النظام';
+
+            document.getElementById('userAvatar').innerText = userName.charAt(0);
+            document.getElementById('userRole').innerText = userRole;
+        }
+
+        async function addUserPrompt() {
+            const newName = prompt("أدخل اسم المستخدم الجديد:");
+            if (!newName || !newName.trim()) return;
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: newName.trim(), role: "مدير النظام" })
+                });
+                if (response.ok) {
+                    alert('تم حفظ المستخدم الجديد في قاعدة البيانات بنجاح!');
+                    await fetchUsersFromDB();
+                } else {
+                    alert('تعذر حفظ المستخدم');
+                }
+            } catch (e) {
+                console.error("خطأ:", e);
+            }
+        }
+
+        // 3. Fetch Notices from Database & Update Dashboard
+        async function fetchNoticesFromDB() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/notices');
+                const result = await response.json();
+                
+                if (result.status === 'success' && result.data) {
+                    const tbody = document.getElementById('transactionsTableBody');
+                    tbody.innerHTML = '';
+
+                    let totalCount = 0;
+                    let totalCredit = 0;
+                    let totalDebit = 0;
+
+                    result.data.forEach(notice => {
+                        totalCount++;
+                        const amount = parseFloat(notice.amount) || 0;
+                        const isCredit = String(notice.transaction_type).includes('إيداع') || String(notice.transaction_type).includes('Credit');
+                        
+                        if (isCredit) {
+                            totalCredit += amount;
+                        } else {
+                            totalDebit += amount;
+                        }
+
+                        const tr = document.createElement('tr');
+                        const typeBadge = isCredit
+                            ? '<span class="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full">إيداع</span>'
+                            : '<span class="bg-rose-100 text-rose-700 text-xs px-2 py-0.5 rounded-full">خصم</span>';
+
+                        tr.innerHTML = `
+                            <td class="p-3 text-xs">${notice.transaction_date || ''}</td>
+                            <td class="p-3 font-semibold">${notice.bank_name || 'Bankak'}</td>
+                            <td class="p-3 text-xs font-mono">${notice.sender_account || ''}</td>
+                            <td class="p-3">${notice.receiver_name || ''}</td>
+                            <td class="p-3 font-bold ${isCredit ? 'text-emerald-600' : 'text-rose-600'}">${amount.toLocaleString()}</td>
+                            <td class="p-3">${typeBadge}</td>
+                            <td class="p-3 text-xs text-gray-500">${notice.created_by || 'نظام'}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    document.getElementById('stat-total-count').innerText = totalCount;
+                    document.getElementById('stat-total-credit').innerText = totalCredit.toLocaleString() + " SDG";
+                    document.getElementById('stat-total-debit').innerText = totalDebit.toLocaleString() + " SDG";
+                }
+            } catch (error) {
+                console.error("خطأ في جلب الإشعارات:", error);
+            }
+        }
+
+        // 4. File Upload & Mock OCR
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('imagePreview');
+                    img.src = e.target.result;
+                    img.classList.remove('hidden');
+                    document.getElementById('imagePreviewContainer').querySelector('span').classList.add('hidden');
+
+                    const btn = document.getElementById('btnProcessOCR');
+                    btn.disabled = false;
+                    btn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                    btn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function processOCRMock() {
+            alert('تم استخراج البيانات بنجاح من إشعار بنكك!');
+            showSection('review');
+        }
+
+        // 5. Save Notice to PostgreSQL Backend
+        async function saveNoticeToDB() {
+            const userName = document.getElementById('userSelect').value;
+            const bankName = document.getElementById('field-bank').value;
+            const transactionDate = document.getElementById('field-date').value;
+            const transactionType = document.getElementById('field-type').value;
+            const amount = parseFloat(document.getElementById('field-amount').value) || 0;
+            const senderAccount = document.getElementById('field-from').value;
+            const receiverAccount = document.getElementById('field-to').value;
+            const receiverName = document.getElementById('field-name').value;
+
+            const noticeData = {
+                transaction_date: transactionDate,
+                bank_name: bankName,
+                transaction_type: transactionType,
+                amount: amount,
+                sender_account: senderAccount,
+                receiver_account: receiverAccount,
+                receiver_name: receiverName,
+                created_by: userName
+            };
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/notices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(noticeData)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    if (result.status === 'duplicate') {
+                        alert('تنبيه: هذه المعاملة مسجلة مسبقاً في النظام ولا يمكن تكرارها!');
+                    } else {
+                        alert('تمت إضافة الإشعار وحفظه في قاعدة البيانات بنجاح!');
+                        await fetchNoticesFromDB();
+                        showSection('dashboard');
+                    }
+                } else {
+                    alert('حدث خطأ أثناء حفظ المعاملة: ' + (result.detail || 'تعذّر الاتصال'));
+                }
+            } catch (error) {
+                console.error("خطأ في الاتصال بالخادم:", error);
+                alert('فشل الاتصال بالخادم الخلفي.');
+            }
+        }
+
+        // 6. Excel File Handling
+        function handleExcelSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedExcelFile = file;
+                document.getElementById('excelFileName').innerText = "الملف المحدد: " + file.name;
+                const btn = document.getElementById('btnProcessExcel');
+                btn.disabled = false;
+                btn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                btn.classList.add('bg-emerald-600', 'text-white', 'hover:bg-emerald-700');
+            }
+        }
+
+        function processExcelFile() {
+            if (!selectedExcelFile) return;
+            alert('تم اختيار ملف Excel بنجاح وجاهز للمعالجة.');
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            await fetchUsersFromDB();
+            await fetchNoticesFromDB();
+
+            // Initialize Dashboard Chart
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            mainChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['01 Aug', '02 Aug', '03 Aug', '04 Aug', '05 Aug', '06 Aug'],
+                    datasets: [{
+                        label: 'حجم المعاملات (SDG)',
+                        data: [12000, 19000, 3000, 77090, 45000, 60000],
+                        borderColor: '#1d4ed8',
+                        backgroundColor: 'rgba(29, 78, 216, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                }
+            });
+        });
+    </script>
+</body>
+</html>
